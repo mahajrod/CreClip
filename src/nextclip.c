@@ -811,7 +811,7 @@ void find_junction_adaptors(FastQRead* read, JunctionAdaptorAlignment* result)
                 better_result = 1;
             }
         // Failing a double match, have we found a single match?
-        } else if ((core_len >= min_core_len) && (matches[0] >= strict_single_match) || (matches[1] >= strict_single_match)) {
+        } else if ((core_len >= min_core_len) && ((matches[0] >= strict_single_match) || (matches[1] >= strict_single_match))) {
             // Only consider if we haven't already found a double match
             if (result->score < strict_double_match) {
                 int best_current_match = matches[0] > matches[1] ? matches[0]:matches[1];
@@ -931,7 +931,7 @@ void log_output_alignment(MPStats* stats, FastQRead* read, JunctionAdaptorAlignm
         fprintf(stats->log_fp, "%s\n", s2);
     }
     
-    fprintf(stats->log_fp, "Junction adaptor: Read %d-%d Adaptor %d-%d Score %d Id %.1f ", result->read_start, result->read_end, result->query_start, result->query_end, result->score, result->total_identity);
+    fprintf(stats->log_fp, "Junction adaptor: Read %d-%d Adaptor %d-%d Score %d Core score %d Id %.1f ", result->read_start, result->read_end, result->query_start, result->query_end, result->score, result->core_score, result->total_identity);
     fprintf(stats->log_fp, "(Matches %d,%d Mismatches %d,%d Lengths %d,%d Identity %.1f,%.1f)\n",
            result->matches[0], result->matches[1],
            result->mismatches[0], result->mismatches[1],
