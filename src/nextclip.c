@@ -55,6 +55,9 @@ typedef struct {
 typedef struct {
     int read_size;
     int score;
+    //----------------------Additions----------------------
+    int core_score;
+    //------------------End of additions-------------------
     int total_matches;
     double total_identity;
     int total_alignment_length;
@@ -146,8 +149,8 @@ typedef struct {
 /*----------------------------------------------------------------------*
  * Globals
  *----------------------------------------------------------------------*/
-char single_junction_adaptor[128] = "CTGTCTCTTATACACATCT";
-char duplicate_junction_adaptor[128] = "CTGTCTCTTATACACATCTAGATGTGTATAAGAGACAG";
+char single_junction_adaptor[128] = "TCGTGCTGAGGATAACTTCGTATAATGTATGCTATACGAAGTTATCCTCAGCTACG";
+char duplicate_junction_adaptor[128] = "TCGTGCTGAGGATAACTTCGTATAATGTATGCTATACGAAGTTATCCTCAGCTACG";
 char* external_adaptors[2] = {"GATCGGAAGAGCACACGTCTGAACTCCAGTCAC", "GATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"};
 int minimum_read_size = 25;
 int strict_double_match = 34;
@@ -161,6 +164,10 @@ int num_categories = NUMBER_OF_CATEGORIES;
 int trim_ends = 19;
 int approximate_reads = 20000000;
 int output_memory_requirements = false;
+
+//---------------------Additions-----------------------
+int min_core_len = 9; // Minimum length of continuous match in junction alignment
+//------------------End of additions-------------------
 
 /*
  * Single hash option algorithm
@@ -265,6 +272,9 @@ void initialise_stats(MPStats* stats)
  *----------------------------------------------------------------------*/
 void initialise_junction_adaptor_alignment(JunctionAdaptorAlignment* result)
 {
+	//----------------------Additions----------------------
+	result->core_score = 0;
+	//------------------End of additions-------------------
     result->score = -1;
     result->position = -1;
     result->total_matches = 0;
@@ -610,14 +620,16 @@ void parse_command_line(int argc, char* argv[], MPStats* stats)
  * Returns:    None
  *----------------------------------------------------------------------*/
 void strict_check(JunctionAdaptorAlignment* result)
-{
-    if (result->total_matches >= strict_double_match) {
+{	//---------------Additions---------------------
+    if ((result->core_score >= min_core_len) && (result->total_matches >= strict_double_match)) {
+    //---------------End of additions---------------------
         result->accepted = 1;
         return;
     } 
-   
-    if ((result->matches[0] >= strict_single_match) || (result->matches[1] >= strict_single_match)) {
-        result->accepted = 1;
+    //---------------Additions---------------------
+    if ((result->core_score >= min_core_len) && ((result->matches[0] >= strict_single_match) || (result->matches[1] >= strict_single_match)) ) {
+   //---------------End of additions---------------------
+    	result->accepted = 1;
         return;
     }
     
@@ -632,14 +644,16 @@ void strict_check(JunctionAdaptorAlignment* result)
  * Returns:    None
  *----------------------------------------------------------------------*/
 void relaxed_check(JunctionAdaptorAlignment* result)
-{
-    if (result->total_matches >= relaxed_double_match) {
+{	//---------------Additions---------------------
+    if ((result->core_score >= min_core_len) && (result->total_matches >= relaxed_double_match)) {
+    //---------------End of additions---------------------
         result->accepted = 1;
         return;
     } 
-    
-    if ((result->matches[0] >= relaxed_single_match) || (result->matches[1] >= relaxed_single_match)) {
-        result->accepted = 1;
+    //---------------Additions---------------------
+    if ((result->core_score >= min_core_len) && ((result->matches[0] >= relaxed_single_match) || (result->matches[1] >= relaxed_single_match) )) {
+    //---------------End of additions---------------------
+    	result->accepted = 1;
         return;
     }    
 }
@@ -742,12 +756,20 @@ void find_junction_adaptors(FastQRead* read, JunctionAdaptorAlignment* result)
         int query_start = -1;
         int query_end = -1;
         int better_result = 0;
- 
+        //---------------------Additions-----------------------
+        // to add core score - length of core alignment
+        int core_len = 0;
+        int temp_len = 0;
+        //------------------End of additions-------------------
+
         // Go through each base of transposon, count matches and store start and end of match
         // For interest, we store the 19nt sequence and it's reverse as a part 1 and part 2!
         for (p=0; p<adaptor_length; p++) {
             if (((x+p) >= 0) && ((x+p) < read->read_size)) {
                 if (duplicate_junction_adaptor[p] == read->read[x+p]) {
+                	//---------------------Additions-----------------------
+                	core_len++;
+                	//------------------End of additions-------------------
                     matches[p < 19 ? 0:1]++;
                     if (read_start == -1) {
                         read_start = x+p;
@@ -757,6 +779,14 @@ void find_junction_adaptors(FastQRead* read, JunctionAdaptorAlignment* result)
                         query_end = p;
                     }
                 } else {
+                	//---------------------Additions-----------------------
+                	// Check if new continuous match is longer than previous
+                	if (core_len > temp_len)
+                		{
+                		temp_len = core_len;
+                		}
+                	//---------------------Additions-----------------------           	core_len = 0;
+                	//------------------End of additions-------------------
                     mismatches[p < 19 ? 0:1]++;
                 }
             }
@@ -764,17 +794,24 @@ void find_junction_adaptors(FastQRead* read, JunctionAdaptorAlignment* result)
         
         // Score is simply matches for part 1 and 2
         score = matches[0] + matches[1];
-        
+        //---------------------Additions-----------------------
+        core_len = core_len > temp_len ? core_len : temp_len;
+        //------------------End of additions-------------------
         // Decide if it's a better match
         
         // If we've found a double match...
-        if (score >= strict_double_match) {
+        		//---------------------Additions-----------------------
+        if ((score >= strict_double_match) && (core_len >= min_core_len)) {
             // Then see if it's a better double match than we've already got...
-            if (score > result->score) {
+
+        	if (core_len > result->core_score)
+        		{
+        		better_result = 1;
+        		} else if ((core_len == result->core_score) && (score > result->score)) {
                 better_result = 1;
             }
         // Failing a double match, have we found a single match?
-        } else if ((matches[0] >= strict_single_match) || (matches[1] >= strict_single_match)) {
+        } else if ((core_len >= min_core_len) && (matches[0] >= strict_single_match) || (matches[1] >= strict_single_match)) {
             // Only consider if we haven't already found a double match
             if (result->score < strict_double_match) {
                 int best_current_match = matches[0] > matches[1] ? matches[0]:matches[1];
@@ -800,9 +837,12 @@ void find_junction_adaptors(FastQRead* read, JunctionAdaptorAlignment* result)
                     }
             }
         }
-    
+        //---------------------End of Additions-----------------------
         // Is this the best score yet?
         if (better_result == 1) {
+        	//---------------------Additions-----------------------
+        	result->core_score = core_len;
+        	//------------------End of additions-------------------
             result->score = score;
             result->matches[0] = matches[0];
             result->mismatches[0] = mismatches[0];
@@ -849,7 +889,7 @@ void log_output_alignment(MPStats* stats, FastQRead* read, JunctionAdaptorAlignm
     fprintf(stats->log_fp, "\n---------- Read ID: %s ----------\n", read->read_header);
     fprintf(stats->log_fp, "%s\n", read->read);
 
-    if ((result->score < 0) && (external_adaptor_result->score < 17)) {
+    if ((result->score < 0) && (external_adaptor_result->score < 17) && ( result->core_score < min_core_len )) {
         fprintf(stats->log_fp, "No alignment\n");
     } else {
         
@@ -1487,7 +1527,8 @@ void process_adaptor(void)
 
     reverse_compliment(single_junction_adaptor, reverse);
     strcpy(duplicate_junction_adaptor, single_junction_adaptor);
-    strcat(duplicate_junction_adaptor, reverse);
+    //LABEl: following string was commented to handle Cre-LoxP
+    //strcat(duplicate_junction_adaptor, reverse);
 
     printf("Adaptor: %s\n\n", duplicate_junction_adaptor);
 }
