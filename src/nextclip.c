@@ -756,6 +756,7 @@ void find_junction_adaptors(FastQRead* read, JunctionAdaptorAlignment* result)
         int query_start = -1;
         int query_end = -1;
         int better_result = 0;
+        int prev_hit = 0;
         //---------------------Additions-----------------------
         // to add core score - length of core alignment
         int core_len = 0;
@@ -764,6 +765,7 @@ void find_junction_adaptors(FastQRead* read, JunctionAdaptorAlignment* result)
 
         // Go through each base of transposon, count matches and store start and end of match
         // For interest, we store the 19nt sequence and it's reverse as a part 1 and part 2!
+
         for (p=0; p<adaptor_length; p++) {
             if (((x+p) >= 0) && ((x+p) < read->read_size)) {
                 if (duplicate_junction_adaptor[p] == read->read[x+p]) {
@@ -779,13 +781,18 @@ void find_junction_adaptors(FastQRead* read, JunctionAdaptorAlignment* result)
                         query_end = p;
                     }
                 } else {
+
                 	//---------------------Additions-----------------------
+                	//mark end of continuous alignment
+                	//prev_hit = 0;
                 	// Check if new continuous match is longer than previous
+
                 	if (core_len > temp_len)
                 		{
                 		temp_len = core_len;
                 		}
-                	//---------------------Additions-----------------------           	core_len = 0;
+                	//---------------------Additions-----------------------
+                	core_len = 0;
                 	//------------------End of additions-------------------
                     mismatches[p < 19 ? 0:1]++;
                 }
