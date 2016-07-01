@@ -150,7 +150,7 @@ typedef struct {
  * Globals
  *----------------------------------------------------------------------*/
 char single_junction_adaptor[128] = "TCGTGCTGAGGATAACTTCGTATAATGTATGCTATACGAAGTTATCCTCAGCTACG";
-char duplicate_junction_adaptor[128] = "TCGTGCTGAGGATAACTTCGTATAATGTATGCTATACGAAGTTATCCTCAGCTACG";
+char duplicate_junction_adaptor[128] = "CGTAGCTGAGGATAACTTCGTATAGCATACATTATACGAAGTTATCCTCAGCACGA"; // "TCGTGCTGAGGATAACTTCGTATAATGTATGCTATACGAAGTTATCCTCAGCTACG";
 char* external_adaptors[2] = {"GATCGGAAGAGCACACGTCTGAACTCCAGTCAC", "GATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"};
 int minimum_read_size = 25;
 int strict_double_match = 34;
